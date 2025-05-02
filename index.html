@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Tool Application</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/marked@4.0.2/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [contenteditable="true"]:focus {
+            outline: none;
+        }
+        .text-editor {
+            height: calc(100vh - 250px);
+            overflow-y: auto;
+        }
+        .ruler {
+            background-image: linear-gradient(90deg, #ccc 1px, transparent 1px);
+            background-size: 20px 100%;
+        }
+        .dark .ruler {
+            background-image: linear-gradient(90deg, #555 1px, transparent 1px);
+        }
+        #imageCanvas {
+            max-width: 100%;
+            height: auto;
+        }
+        .canvas-container {
+            max-height: calc(100vh - 250px);
+            overflow-y: auto;
+        }
+        .pdf-viewer {
+            height: calc(100vh - 250px);
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-6">
+        <h1 class="text-3xl font-bold text-center text-primary mb-6">Multi-Tool Application</h1>
+        
+        <!-- Main Menu -->
+        <div id="mainMenu" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+            <button onclick="openTool('textEditor')" class="p-6 bg-primary text-white rounded-lg shadow-md hover:bg-opacity-90 transition-all flex flex-col items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span class="text-xl font-semibold">Editor de Texto</span>
+            </button>
+            
+            <button onclick="openTool('imageEditor')" class="p-6 bg-primary text-white rounded-lg shadow-md hover:bg-opacity-90 transition-all flex flex-col items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span class="text-xl font-semibold">Editor de Imagem</span>
+            </button>
+            
+            <button onclick="openTool('pdfEditor')" class="p-6 bg-primary text-white rounded-lg shadow-md hover:bg-opacity-90 transition-all flex flex-col items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <span class="text-xl font-semibold">Editor de PDF</span>
+            </button>
+        </div>
+        
+        <!-- Text Editor Tool -->
+        <div id="textEditor" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-primary">Editor de Texto</h2>
+                <button onclick="backToMenu()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
+                    Voltar ao Menu
+                </button>
+            </div>
+            
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-4">
+                <div class="flex flex-wrap gap-2 border-b border-gray-300 dark:border-gray-700 pb-2 mb-2">
+                    <button onclick="execCommand('bold')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <strong>B</strong>
+                    </button>
+                    <button onclick="execCommand('italic')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <em>I</em>
+                    </button>
+                    <button onclick="execCommand('underline')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <u>U</u>
+                    </button>
+                    <button onclick="execCommand('strikeThrough')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <s>S</s>
+                    </button>
+                    <select onchange="execCommandWithArg('fontName', this.value)" class="p-2 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700">
+                        <option value="">Fonte</option>
+                        <option value="Arial">Arial</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Courier New">Courier New</option>
+                    </select>
+                    <select onchange="execCommandWithArg('fontSize', this.value)" class="p-2 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700">
+                        <option value="">Tamanho</option>
+                        <option value="1">Pequeno</option>
+                        <option value="3">Normal</option>
+                        <option value="5">Grande</option>
+                        <option value="7">Muito Grande</option>
+                    </select>
+                    <input type="color" onchange="execCommandWithArg('foreColor', this.value)" class="p-2 h-10 w-10 rounded">
+                    <button onclick="execCommand('justifyLeft')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h10M4 18h16" />
+                        </svg>
+                    </button>
+                    <button onclick="execCommand('justifyCenter')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M6 12h12M4 18h16" />
+                        </svg>
+                    </button>
+                    <button onclick="execCommand('justifyRight')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M10 12h10M4 18h16" />
+                        </svg>
+                    </button>
+                    <button onclick="execCommand('insertUnorderedList')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                    <button onclick="execCommand('insertOrderedList')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h10M7 16h10M3 8h.01M3 12h.01M3 16h.01" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="ruler mb-2 h-6 border-t border-b border-gray-300 dark:border-gray-700"></div>
+                
+                <div id="textContent" contenteditable="true" class="text-editor p-4 border border-gray-300 dark:border-gray-700 rounded min-h-[200px] text-base">
+                    Comece a digitar aqui...
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap gap-2 mt-4">
+                <button onclick="saveAsText()" class="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90 transition-all">
+                    Salvar como TXT
+                </button>
+                <button onclick="saveAsPDF()" class="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90 transition-all">
+                    Salvar como PDF
+                </button>
+                <button onclick="saveAsDocx()" class="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90 transition-all">
+                    Salvar como DOCX
+                </button>
+            </div>
+        </div>
+        
+        <!-- Image Editor Tool -->
+        <div id="imageEditor" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-primary">Editor de Imagem</h2>
+                <button onclick="backToMenu()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
+                    Voltar ao Menu
+                </button>
+            </div>
+            
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-4">
+                <div class="flex flex-wrap gap-2 border-b border-gray-300 dark:border-gray-700 pb-2 mb-2">
+                    <input type="file" id="imageUpload" accept="image/*" class="hidden" onchange="loadImage(event)">
+                    <button onclick="document.getElementById('imageUpload').click()" class="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90 transition-all">
+                        Carregar Imagem
+                    </button>
+                    <button onclick="pasteImage()" class="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90 transition-all">
+                        Colar Imagem
+                    </button>
+                    <button onclick="rotateImage(90)" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
+                        Girar 90°
+                    </button>
+                    <button onclick="flipImage('horizontal')" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
+                        Espelhar Horizontal
+                    </button>
+                    <button onclick="flipImage('vertical')" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
+                        Espelhar Vertical
+                    </button>
+                    <button onclick="applyFilter('grayscale')" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
+                        Escala de Cinza
+                    </button>
+                    <button onclick="extractText()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
+                        Extrair Texto
+                    </button>
+                    <button onclick="saveImage()" class="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90 transition-all">
+                        Salvar Imagem
+                    </button>
+                </div>
+                
+                <div class="canvas-container flex justify-center">
+                    <canvas id="imageCanvas" class="border border-gray-300 dark:border-gray-700 rounded">
+                        Seu navegador não suporta Canvas HTML5.
+                    </canvas>
+                </div>
+                
+                <div id="extractedText" class="mt-4 p-4 border border-gray-300 dark:border-gray-700 rounded hidden">
+                    <h3 class="font-bold mb-2">Texto Extraído:</h3>
+                    <div id="ocrResult" class="whitespace-pre-wrap"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- PDF Editor Tool -->
+        <div id="pdfEditor" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-primary">Editor de PDF</h2>
+                <button onclick="backToMenu()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
+                    Voltar ao Menu
+                </button>
+            </div>
+            
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-4">
+                <div class="flex flex-wrap gap-2 border-b border-gray-300 dark:border-gray-700 pb-2 mb-2">
+                    <input type="file" id="pdfUpload" accept=".pdf" class="hidden" onchange="loadPDF(event)">
+                    <button onclick="document.getElementById('pdfUpload').click()" class="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90 transition-all">
+                        Carregar PDF
+                    </button>
+                    <button id="extractPagesBtn" onclick="extractPages()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-all" disabled>
+                        Extrair Páginas
+                    </button>
+                    <div class="flex items-center">
+                        <label class="mr-2">Páginas:</label>
+                        <input type="text" id="pageRange" placeholder="Ex: 1-3,5,7-9" class="p-2 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-base">
+                    </div>
+                    <input type="file" id="mergePDFUpload" accept=".pdf" multiple class="hidden" onchange="setupMerge(event)">
+                    <button onclick="document.getElementById('mergePDFUpload').click()" class="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90 transition-all">
+                        Fundir PDFs
+                    </button>
+                    <button id="savePDFBtn" onclick="savePDF()" class="px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90 transition-all" disabled>
+                        Salvar PDF
+                    </button>
+                </div>
+                
+                <div id="pdfContainer" class="pdf-viewer flex justify-center items-center border border-gray-300 dark:border-gray-700 rounded">
+                    <p class="text-center text-gray-500 dark:text-gray-400 py-10">Carregue um arquivo PDF para visualizar</p>
+                </div>
+                
+                <div id="pdfInfo" class="mt-4 hidden">
+                    <p>Total de páginas: <span id="pageCount">0</span></p>
+                </div>
+                
+                <div id="mergeList" class="mt-4 hidden">
+                    <h3 class="font-bold mb-2">PDFs para fundir:</h3>
+                    <ul id="mergeFileList" class="list-disc pl-6"></ul>
+                    <button onclick="mergePDFs()" class="mt-2 px-4 py-2 bg-primary text-white rounded hover:bg-opacity-90 transition-all">
+                        Fundir Arquivos Selecionados
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check for dark mode
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+        
+        // Navigation functions
+        function openTool(toolId) {
+            // Hide all tools
+            document.getElementById('mainMenu').classList.add('hidden');
+            document.getElementById('textEditor').classList.add('hidden');
+            document.getElementById('imageEditor').classList.add('hidden');
+            document.getElementById('pdfEditor').classList.add('hidden');
+            
+            // Show selected tool
+            document.getElementById(toolId).classList.remove('hidden');
+        }
+        
+        function backToMenu() {
+            // Hide all tools
+            document.getElementById('textEditor').classList.add('hidden');
+            document.getElementById('imageEditor').classList.add('hidden');
+            document.getElementById('pdfEditor').classList.add('hidden');
+            
+            // Show main menu
+            document.getElementById('mainMenu').classList.remove('hidden');
+        }
+        
+        // Text Editor functions
+        function execCommand(cmd) {
+            document.execCommand(cmd, false, null);
+            document.getElementById('textContent').focus();
+        }
+        
+        function execCommandWithArg(cmd, arg) {
+            document.execCommand(cmd, false, arg);
+            document.getElementById('textContent').focus();
+        }
+        
+        function saveAsText() {
+            const text = document.getElementById('textContent').innerText;
+            const blob = new Blob([text], {type: 'text/plain'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'documento.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function saveAsPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const text = document.getElementById('textContent').innerText;
+            
+            // Split text into lines to fit on PDF
+            const lines = doc.splitTextToSize(text, 180);
+            doc.text(lines, 15, 15);
+            doc.save('documento.pdf');
+        }
+        
+        function saveAsDocx() {
+            // This is a simple .txt download with .docx extension since creating real DOCX requires additional libraries
+            const text = document.getElementById('textContent').innerText;
+            const blob = new Blob([text], {type: 'text/plain'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'documento.docx';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            // Notify user about limitations
+            alert('Nota: Este é um arquivo de texto simples com extensão .docx. Para conversão completa em DOCX, recomendamos usar um serviço online específico.');
+        }
+        
+        // Image Editor functions
+        let canvas = document.getElementById('imageCanvas');
+        let ctx = canvas.getContext('2d');
+        let currentImage = null;
+        
+        // Set initial canvas size
+        canvas.width = 600;
+        canvas.height = 400;
+        
+        function loadImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        currentImage = img;
+                        resetCanvas();
+                        drawImage();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        function pasteImage() {
+            navigator.clipboard.read()
+                .then(items => {
+                    for (const item of items) {
+                        if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+                            item.getType(item.types.find(type => type.startsWith('image/')))
+                                .then(blob => {
+                                    const reader = new FileReader();
+                                    reader.onload = function(e) {
+                                        const img = new Image();
+                                        img.onload = function() {
+                                            currentImage = img;
+                                            resetCanvas();
+                                            drawImage();
+                                        };
+                                        img.src = e.target.result;
+                                    };
+                                    reader.readAsDataURL(blob);
+                                });
+                            break;
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error('Erro ao colar imagem:', err);
+                    alert('Não foi possível colar a imagem. Tente usar o botão "Carregar Imagem" ou verifique as permissões do navegador.');
+                });
+        }
+        
+        function resetCanvas() {
+            // Adjust canvas size to fit image while maintaining constraints
+            if (currentImage) {
+                let maxWidth = Math.min(window.innerWidth - 40, 800);
+                let maxHeight = 600;
+                
+                let width = currentImage.width;
+                let height = currentImage.height;
+                
+                if (width > maxWidth) {
+                    height = (maxWidth / width) * height;
+                    width = maxWidth;
+                }
+                
+                if (height > maxHeight) {
+                    width = (maxHeight / height) * width;
+                    height = maxHeight;
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+        
+        function drawImage() {
+            if (currentImage) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+            }
+        }
+        
+        function rotateImage(degrees) {
+            if (!currentImage) return;
+            
+            // Create an offscreen canvas
+            const offCanvas = document.createElement('canvas');
+            const offCtx = offCanvas.getContext('2d');
+            
+            // Set canvas dimensions for rotated image
+            if (degrees === 90 || degrees === 270) {
+                offCanvas.width = canvas.height;
+                offCanvas.height = canvas.width;
+            } else {
+                offCanvas.width = canvas.width;
+                offCanvas.height = canvas.height;
+            }
+            
+            // Translate and rotate
+            offCtx.translate(offCanvas.width / 2, offCanvas.height / 2);
+            offCtx.rotate((degrees * Math.PI) / 180);
+            offCtx.drawImage(
+                canvas, 
+                -canvas.width / 2, 
+                -canvas.height / 2, 
+                canvas.width, 
+                canvas.height
+            );
+            
+            // Update current canvas
+            const tempImg = new Image();
+            tempImg.onload = function() {
+                currentImage = tempImg;
+                resetCanvas();
+                drawImage();
+            };
+            tempImg.src = offCanvas.toDataURL();
+        }
+        
+        function flipImage(direction) {
+            if (!currentImage) return;
+            
+            // Create an offscreen canvas
+            const offCanvas = document.createElement('canvas');
+            const offCtx = offCanvas.getContext('2d');
+            
+            offCanvas.width = canvas.width;
+            offCanvas.height = canvas.height;
+            
+            // Flip horizontally or vertically
+            if (direction === 'horizontal') {
+                offCtx.translate(offCanvas.width, 0);
+                offCtx.scale(-1, 1);
+            } else {
+                offCtx.translate(0, offCanvas.height);
+                offCtx.scale(1, -1);
+            }
+            
+            offCtx.drawImage(canvas, 0, 0);
+            
+            // Update current canvas
+            const tempImg = new Image();
+            tempImg.onload = function() {
+                currentImage = tempImg;
+                resetCanvas();
+                drawImage();
+            };
+            tempImg.src = offCanvas.toDataURL();
+        }
+        
+        function applyFilter(filter) {
+            if (!currentImage) return;
+            
+            if (filter === 'grayscale') {
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    data[i] = avg; // Red
+                    data[i + 1] = avg; // Green
+                    data[i + 2] = avg; // Blue
+                }
+                
+                ctx.putImageData(imageData, 0, 0);
+                
+                // Update current image
+                const tempImg = new Image();
+                tempImg.onload = function() {
+                    currentImage = tempImg;
+                };
+                tempImg.src = canvas.toDataURL();
+            }
+        }
+        
+        function extractText() {
+            if (!currentImage) return;
+            
+            document.getElementById('extractedText').classList.remove('hidden');
+            document.getElementById('ocrResult').innerText = 'Processando texto da imagem...';
+            
+            // Use Poe to get text from image
+            if (window.Poe) {
+                // Create a canvas data URL
+                const dataURL = canvas.toDataURL('image/jpeg');
+                
+                // Convert data URL to Blob
+                const byteString = atob(dataURL.split(',')[1]);
+                const mimeString = dataURL.split(',')[0].split(':')[1].split(';')[0];
+                const ab = new ArrayBuffer(byteString.length);
+                const ia = new Uint8Array(ab);
+                for (let i = 0; i < byteString.length; i++) {
+                    ia[i] = byteString.charCodeAt(i);
+                }
+                const blob = new Blob([ab], {type: mimeString});
+                const file = new File([blob], "image.jpg", {type: "image/jpeg"});
+                
+                // Handle OCR response
+                window.Poe.registerHandler("ocr-handler", (result) => {
+                    const msg = result.responses[0];
+                    
+                    if (msg.status === "error") {
+                        document.getElementById('ocrResult').innerText = "Erro: " + msg.statusText;
+                    } else if (msg.status === "complete") {
+                        document.getElementById('ocrResult').innerText = msg.content;
+                    }
+                });
+                
+                // Send OCR request
+                try {
+                    window.Poe.sendUserMessage(
+                        "@Claude-3.7-Sonnet Por favor, extraia todo o texto visível desta imagem e retorne apenas o texto.",
+                        {
+                            attachments: [file],
+                            handler: "ocr-handler",
+                            stream: false,
+                            openChat: false
+                        }
+                    );
+                } catch (err) {
+                    document.getElementById('ocrResult').innerText = "Erro ao processar OCR: " + err.message;
+                }
+            } else {
+                document.getElementById('ocrResult').innerText = "Funcionalidade de OCR não está disponível neste ambiente.";
+            }
+        }
+        
+        function saveImage() {
+            if (!currentImage) return;
+            
+            const dataURL = canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = dataURL;
+            a.download = 'imagem_editada.png';
+            a.click();
+        }
+        
+        // PDF Editor functions
+        let currentPDF = null;
+        let pdfPages = [];
+        let mergeFiles = [];
+        const { PDFDocument } = PDFLib;
+        
+        async function loadPDF(event) {
+            const file = event.target.files[0];
+            if (file) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdfDoc = await PDFDocument.load(arrayBuffer);
+                    
+                    currentPDF = {
+                        document: pdfDoc,
+                        filename: file.name,
+                        arrayBuffer: arrayBuffer
+                    };
+                    
+                    const pageCount = pdfDoc.getPageCount();
+                    document.getElementById('pageCount').textContent = pageCount;
+                    document.getElementById('pdfInfo').classList.remove('hidden');
+                    document.getElementById('extractPagesBtn').disabled = false;
+                    document.getElementById('savePDFBtn').disabled = false;
+                    
+                    // Display first page preview
+                    displayPDFPreview(arrayBuffer);
+                    
+                } catch (error) {
+                    console.error('Erro ao carregar PDF:', error);
+                    alert('Erro ao carregar o arquivo PDF. Verifique se é um arquivo PDF válido.');
+                }
+            }
+        }
+        
+        async function displayPDFPreview(arrayBuffer) {
+            const container = document.getElementById('pdfContainer');
+            container.innerHTML = '';
+            
+            // Create an embed element for the PDF
+            const embed = document.createElement('embed');
+            embed.src = URL.createObjectURL(new Blob([arrayBuffer], { type: 'application/pdf' }));
+            embed.type = 'application/pdf';
+            embed.style.width = '100%';
+            embed.style.height = '500px';
+            
+            container.appendChild(embed);
+        }
+        
+        async function extractPages() {
+            if (!currentPDF) return;
+            
+            try {
+                const pageRangeInput = document.getElementById('pageRange').value.trim();
+                if (!pageRangeInput) {
+                    alert('Por favor, especifique as páginas para extrair (ex: 1-3,5,7-9)');
+                    return;
+                }
+                
+                const pageIndices = parsePageRange(pageRangeInput, currentPDF.document.getPageCount());
+                if (pageIndices.length === 0) {
+                    alert('Nenhuma página válida especificada.');
+                    return;
+                }
+                
+                // Create a new PDF with selected pages
+                const newPdf = await PDFDocument.create();
+                const copiedPages = await newPdf.copyPages(currentPDF.document, pageIndices);
+                
+                copiedPages.forEach(page => newPdf.addPage(page));
+                
+                // Save the new PDF
+                const pdfBytes = await newPdf.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'paginas_extraidas.pdf';
+                a.click();
+                URL.revokeObjectURL(url);
+                
+            } catch (error) {
+                console.error('Erro ao extrair páginas:', error);
+                alert('Erro ao extrair páginas do PDF.');
+            }
+        }
+        
+        function parsePageRange(input, maxPages) {
+            const pageIndices = [];
+            const parts = input.split(',');
+            
+            for (let part of parts) {
+                part = part.trim();
+                
+                if (part.includes('-')) {
+                    // Range of pages
+                    const [start, end] = part.split('-').map(num => parseInt(num.trim()));
+                    
+                    if (isNaN(start) || isNaN(end) || start < 1 || end > maxPages || start > end) {
+                        continue;
+                    }
+                    
+                    // PDF page indices are 0-based
+                    for (let i = start - 1; i < end; i++) {
+                        pageIndices.push(i);
+                    }
+                } else {
+                    // Single page
+                    const page = parseInt(part);
+                    
+                    if (isNaN(page) || page < 1 || page > maxPages) {
+                        continue;
+                    }
+                    
+                    pageIndices.push(page - 1);
+                }
+            }
+            
+            return pageIndices;
+        }
+        
+        function setupMerge(event) {
+            const files = event.target.files;
+            if (files.length === 0) return;
+            
+            mergeFiles = Array.from(files);
+            
+            // Display list of files to merge
+            const mergeList = document.getElementById('mergeFileList');
+            mergeList.innerHTML = '';
+            
+            mergeFiles.forEach((file, index) => {
+                const li = document.createElement('li');
+                li.textContent = file.name;
+                mergeList.appendChild(li);
+            });
+            
+            document.getElementById('mergeList').classList.remove('hidden');
+        }
+        
+        async function mergePDFs() {
+            if (mergeFiles.length === 0) {
+                alert('Por favor, selecione os arquivos PDF para fundir.');
+                return;
+            }
+            
+            try {
+                // Create a new PDF document
+                const mergedPdf = await PDFDocument.create();
+                
+                // Process each PDF file
+                for (const file of mergeFiles) {
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdfDoc = await PDFDocument.load(arrayBuffer);
+                        
+                        // Copy all pages from the current PDF
+                        const pages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                        
+                        // Add each copied page to the new PDF
+                        pages.forEach(page => mergedPdf.addPage(page));
+                        
+                    } catch (error) {
+                        console.error(`Erro ao processar o arquivo ${file.name}:`, error);
+                        alert(`Erro ao processar o arquivo ${file.name}. Pulando este arquivo.`);
+                    }
+                }
+                
+                // Save the merged PDF
+                const mergedPdfBytes = await mergedPdf.save();
+                const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'pdfs_fundidos.pdf';
+                a.click();
+                URL.revokeObjectURL(url);
+                
+            } catch (error) {
+                console.error('Erro ao fundir PDFs:', error);
+                alert('Erro ao fundir os arquivos PDF.');
+            }
+        }
+        
+        async function savePDF() {
+            if (!currentPDF) return;
+            
+            try {
+                const pdfBytes = await currentPDF.document.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'documento_editado.pdf';
+                a.click();
+                URL.revokeObjectURL(url);
+                
+            } catch (error) {
+                console.error('Erro ao salvar PDF:', error);
+                alert('Erro ao salvar o arquivo PDF.');
+            }
+        }
+    </script>
+</body>
+</html>
